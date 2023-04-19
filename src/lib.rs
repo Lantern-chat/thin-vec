@@ -157,6 +157,9 @@ use std::ptr::NonNull;
 use std::slice::IterMut;
 use std::{fmt, io, mem, ptr, slice};
 
+#[cfg(feature = "postgres")]
+mod postgres;
+
 use impl_details::*;
 
 // modules: a simple way to cfg a whole bunch of impl details at once
@@ -415,11 +418,7 @@ fn header_with_capacity<T>(cap: usize) -> NonNull<Header> {
         }
 
         // "Infinite" capacity for zero-sized types:
-        (*header).set_cap(if mem::size_of::<T>() == 0 {
-            MAX_CAP
-        } else {
-            cap
-        });
+        (*header).set_cap(if mem::size_of::<T>() == 0 { MAX_CAP } else { cap });
         (*header).set_len(0);
 
         NonNull::new_unchecked(header)
@@ -1129,10 +1128,7 @@ impl<T> ThinVec<T> {
     ///
     /// Re-allocates only if `self.capacity() < self.len() + additional`.
     pub fn reserve_exact(&mut self, additional: usize) {
-        let new_cap = self
-            .len()
-            .checked_add(additional)
-            .expect("capacity overflow");
+        let new_cap = self.len().checked_add(additional).expect("capacity overflow");
         let old_cap = self.capacity();
         if new_cap > old_cap {
             unsafe {
@@ -1435,8 +1431,7 @@ impl<T> ThinVec<T> {
             // Set our length to the start bound
             self.set_len(start); // could be the singleton
 
-            let iter =
-                slice::from_raw_parts_mut(self.data_raw().add(start), end - start).iter_mut();
+            let iter = slice::from_raw_parts_mut(self.data_raw().add(start), end - start).iter_mut();
 
             Drain {
                 iter,
@@ -1890,10 +1885,7 @@ impl<T> IntoIterator for ThinVec<T> {
     type IntoIter = IntoIter<T>;
 
     fn into_iter(self) -> IntoIter<T> {
-        IntoIter {
-            vec: self,
-            start: 0,
-        }
+        IntoIter { vec: self, start: 0 }
     }
 }
 
@@ -1961,6 +1953,21 @@ impl<T> FromIterator<T> for ThinVec<T> {
         let mut vec = ThinVec::new();
         vec.extend(iter.into_iter());
         vec
+    }
+}
+
+#[cfg(feature = "fallible-iterator")]
+impl<T> fallible_iterator::FromFallibleIterator<T> for ThinVec<T> {
+    fn from_fallible_iter<I>(it: I) -> Result<Self, I::Error>
+    where
+        I: fallible_iterator::IntoFallibleIterator<Item = T>,
+    {
+        use fallible_iterator::FallibleIterator;
+
+        let it = it.into_fallible_iter();
+        let mut vec = ThinVec::with_capacity(it.size_hint().0);
+        it.for_each(|v| Ok(vec.push(v)))?;
+        Ok(vec)
     }
 }
 
@@ -2542,11 +2549,7 @@ impl<I: Iterator> Drop for Splice<'_, I> {
 
             // Collect any remaining elements.
             // This is a zero-length vector which does not allocate if `lower_bound` was exact.
-            let mut collected = self
-                .replace_with
-                .by_ref()
-                .collect::<Vec<I::Item>>()
-                .into_iter();
+            let mut collected = self.replace_with.by_ref().collect::<Vec<I::Item>>().into_iter();
             // Now we have an exact count.
             if collected.len() > 0 {
                 self.drain.move_tail(collected.len());
@@ -2569,9 +2572,8 @@ impl<T> Drain<'_, T> {
         let vec = unsafe { &mut *self.vec };
         let range_start = vec.len();
         let range_end = self.end;
-        let range_slice = unsafe {
-            slice::from_raw_parts_mut(vec.data_raw().add(range_start), range_end - range_start)
-        };
+        let range_slice =
+            unsafe { slice::from_raw_parts_mut(vec.data_raw().add(range_start), range_end - range_start) };
 
         for place in range_slice {
             if let Some(new_item) = replace_with.next() {
@@ -3034,12 +3036,8 @@ mod std_tests {
                 x: ThinVec::new(),
                 y: ThinVec::new(),
             };
-            tv.x.push(DropCounter {
-                count: &mut count_x,
-            });
-            tv.y.push(DropCounter {
-                count: &mut count_y,
-            });
+            tv.x.push(DropCounter { count: &mut count_x });
+            tv.y.push(DropCounter { count: &mut count_y });
 
             // If ThinVec had a drop flag, here is where it would be zeroed.
             // Instead, it should rely on its internal state to prevent
@@ -3113,9 +3111,7 @@ mod std_tests {
         let mut count_x = 0;
         {
             let mut x = ThinVec::new();
-            let y = thin_vec![DropCounter {
-                count: &mut count_x
-            }];
+            let y = thin_vec![DropCounter { count: &mut count_x }];
             x.extend(y);
         }
 

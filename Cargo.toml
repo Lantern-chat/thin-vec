@@ -18,8 +18,14 @@ default = []
 # the empty header to be statically linked in with the symbol name "sEmptyTArrayHeader"
 gecko-ffi = []
 
+postgres = ["dep:postgres-types", "dep:postgres-protocol", "fallible-iterator", "dep:bytes"]
+
 [dependencies]
-serde = {version = "1.0", optional = true}
+bytes = { version = "1.4.0", optional = true }
+fallible-iterator = { version = "0.2.0", optional = true }
+postgres-protocol = { version = "0.6.5", optional = true }
+postgres-types = { version = "0.2.5", optional = true }
+serde = { version = "1.0", optional = true }
 
 [dev-dependencies]
 serde_test = "1.0"
