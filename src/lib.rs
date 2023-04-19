@@ -160,6 +160,9 @@ use std::{fmt, io, mem, ptr, slice};
 #[cfg(feature = "postgres")]
 mod postgres;
 
+#[cfg(feature = "schemars")]
+mod schema;
+
 use impl_details::*;
 
 // modules: a simple way to cfg a whole bunch of impl details at once
@@ -961,7 +964,7 @@ impl<T> ThinVec<T> {
     ///
     /// let mut vec = thin_vec![1, 2, 3];
     /// vec.truncate(0);
-    /// assert_eq!(vec, []);
+    /// assert!(vec.is_empty());
     /// ```
     ///
     /// [`clear`]: ThinVec::clear
@@ -1370,7 +1373,7 @@ impl<T> ThinVec<T> {
     /// let mut vec2 = thin_vec![4, 5, 6];
     /// vec.append(&mut vec2);
     /// assert_eq!(vec, [1, 2, 3, 4, 5, 6]);
-    /// assert_eq!(vec2, []);
+    /// assert!(vec2.is_empty());
     /// ```
     pub fn append(&mut self, other: &mut ThinVec<T>) {
         self.extend(other.drain(..))
@@ -1406,7 +1409,7 @@ impl<T> ThinVec<T> {
     ///
     /// // A full range clears the vector, like `clear()` does
     /// v.drain(..);
-    /// assert_eq!(v, &[]);
+    /// assert!(v.is_empty());
     /// ```
     pub fn drain<R>(&mut self, range: R) -> Drain<'_, T>
     where
@@ -2697,7 +2700,7 @@ mod tests {
         for i in vec.drain(..) {
             vec2.push(i);
         }
-        assert_eq!(vec, []);
+        assert!(vec.is_empty());
         assert_eq!(vec2, [1, 2, 3]);
     }
 
@@ -2708,7 +2711,7 @@ mod tests {
         for i in vec.drain(..).rev() {
             vec2.push(i);
         }
-        assert_eq!(vec, []);
+        assert!(vec.is_empty());
         assert_eq!(vec2, [3, 2, 1]);
     }
 
@@ -2719,7 +2722,7 @@ mod tests {
         for i in vec.drain(..) {
             vec2.push(i);
         }
-        assert_eq!(vec, []);
+        assert!(vec.is_empty());
         assert_eq!(vec2, [(), (), ()]);
     }
 
@@ -2764,12 +2767,12 @@ mod tests {
         let mut v = ThinVec::<i32>::new();
         assert_eq!(v.len(), 0);
         assert_eq!(v.capacity(), 0);
-        assert_eq!(&v[..], &[]);
+        assert!(&v[..].is_empty());
 
         v.clear();
         assert_eq!(v.len(), 0);
         assert_eq!(v.capacity(), 0);
-        assert_eq!(&v[..], &[]);
+        assert!(&v[..].is_empty());
 
         v.push(1);
         v.push(2);
@@ -2780,7 +2783,7 @@ mod tests {
         v.clear();
         assert_eq!(v.len(), 0);
         assert!(v.capacity() >= 2);
-        assert_eq!(&v[..], &[]);
+        assert!(&v[..].is_empty());
 
         v.push(3);
         v.push(4);
@@ -2791,12 +2794,12 @@ mod tests {
         v.clear();
         assert_eq!(v.len(), 0);
         assert!(v.capacity() >= 2);
-        assert_eq!(&v[..], &[]);
+        assert!(&v[..].is_empty());
 
         v.clear();
         assert_eq!(v.len(), 0);
         assert!(v.capacity() >= 2);
-        assert_eq!(&v[..], &[]);
+        assert!(&v[..].is_empty());
     }
 
     #[test]
@@ -2806,13 +2809,13 @@ mod tests {
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
             assert!(v.is_empty());
-            assert_eq!(&v[..], &[]);
-            assert_eq!(&mut v[..], &mut []);
+            assert!(&v[..].is_empty());
+            assert!((&mut v[..]).is_empty());
 
             assert_eq!(v.pop(), None);
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2835,7 +2838,7 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2848,7 +2851,7 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2856,12 +2859,12 @@ mod tests {
             v.truncate(1);
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
 
             v.truncate(0);
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2869,7 +2872,7 @@ mod tests {
             v.shrink_to_fit();
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2877,11 +2880,11 @@ mod tests {
             let new = v.split_off(0);
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
 
             assert_eq!(new.len(), 0);
             assert_eq!(new.capacity(), 0);
-            assert_eq!(&new[..], &[]);
+            assert!(&new[..].is_empty());
         }
 
         {
@@ -2891,11 +2894,11 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
 
             assert_eq!(other.len(), 0);
             assert_eq!(other.capacity(), 0);
-            assert_eq!(&other[..], &[]);
+            assert!(&other[..].is_empty());
         }
 
         {
@@ -2904,7 +2907,7 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2913,7 +2916,7 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2922,7 +2925,7 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2930,7 +2933,7 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2938,7 +2941,7 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2947,7 +2950,7 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2956,7 +2959,7 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2965,7 +2968,7 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2974,7 +2977,7 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
 
         {
@@ -2983,7 +2986,7 @@ mod tests {
 
             assert_eq!(v.len(), 0);
             assert_eq!(v.capacity(), 0);
-            assert_eq!(&v[..], &[]);
+            assert!(&v[..].is_empty());
         }
     }
 
@@ -3078,7 +3081,7 @@ mod std_tests {
         let mut v = ThinVec::<usize>::new();
         let mut w = ThinVec::new();
         v.extend(w.clone());
-        assert_eq!(v, &[]);
+        assert!(v.is_empty());
 
         v.extend(0..3);
         for i in 0..3 {
@@ -3499,7 +3502,7 @@ mod std_tests {
         for i in vec.drain(..) {
             vec2.push(i);
         }
-        assert_eq!(vec, []);
+        assert!(vec.is_empty());
         assert_eq!(vec2, [1, 2, 3]);
     }
 
@@ -3510,7 +3513,7 @@ mod std_tests {
         for i in vec.drain(..).rev() {
             vec2.push(i);
         }
-        assert_eq!(vec, []);
+        assert!(vec.is_empty());
         assert_eq!(vec2, [3, 2, 1]);
     }
 
@@ -3521,7 +3524,7 @@ mod std_tests {
         for i in vec.drain(..) {
             vec2.push(i);
         }
-        assert_eq!(vec, []);
+        assert!(vec.is_empty());
         assert_eq!(vec2, [(), (), ()]);
     }
 
@@ -3650,7 +3653,7 @@ mod std_tests {
     fn test_splice_unbounded() {
         let mut vec = thin_vec![1, 2, 3, 4, 5];
         let t: ThinVec<_> = vec.splice(.., None).collect();
-        assert_eq!(vec, &[]);
+        assert!(vec.is_empty());
         assert_eq!(t, &[1, 2, 3, 4, 5]);
     }
 
@@ -3685,7 +3688,7 @@ mod std_tests {
         let mut vec2 = thin_vec![4, 5, 6];
         vec.append(&mut vec2);
         assert_eq!(vec, [1, 2, 3, 4, 5, 6]);
-        assert_eq!(vec2, []);
+        assert!(vec2.is_empty());
     }
 
     #[test]
@@ -3705,7 +3708,7 @@ mod std_tests {
         assert_eq!(into_iter.as_slice(), &['b', 'c']);
         let _ = into_iter.next().unwrap();
         let _ = into_iter.next().unwrap();
-        assert_eq!(into_iter.as_slice(), &[]);
+        assert!(into_iter.as_slice().is_empty());
     }
 
     #[test]
